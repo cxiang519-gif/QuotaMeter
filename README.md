@@ -64,8 +64,7 @@ window resets.
 
 ## Requirements
 
-- macOS 26 (Tahoe) — QuotaMeter is built with the macOS 26 SDK and developed
-  and tested on macOS 26.
+- macOS 14 or later, Apple silicon — built with the macOS 26 SDK; the app itself runs on macOS 14+.
 - Xcode Command Line Tools (`xcode-select --install`) to build.
 - For Codex: the Codex CLI signed in on this machine (QuotaMeter reads, but
   never writes, `~/.codex/auth.json`).
@@ -79,8 +78,7 @@ window resets.
 ./build.sh --install  # builds, installs to /Applications, and launches
 ```
 
-The app is ad-hoc signed. If macOS blocks the first launch, right-click the
-app and choose **Open**.
+The app is ad-hoc signed and not notarized. If macOS blocks the first launch, open System Settings → Privacy & Security and click "Open Anyway".
 
 ## Setup
 

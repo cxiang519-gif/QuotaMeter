@@ -51,7 +51,7 @@
 
 ## 环境要求
 
-- macOS 26（Tahoe）：使用 macOS 26 SDK 构建，在 macOS 26 上开发与测试。
+- macOS 14 或更高版本，Apple 芯片：使用 macOS 26 SDK 构建，应用本身在 macOS 14+ 即可运行。
 - 构建需要 Xcode 命令行工具（`xcode-select --install`）。
 - Codex：本机已登录的 Codex CLI（额度环只读 `~/.codex/auth.json`，从不写它）。
 - Muse：一个 muse.ai 的登录 Cookie（见下方设置）。
@@ -64,7 +64,7 @@
 ./build.sh --install  # 构建、装到 /Applications 并启动
 ```
 
-应用为自签名。首次启动若被系统拦下，右键应用选「打开」。
+应用为自签名、未经公证。首次启动若被系统拦下，请到 系统设置 → 隐私与安全性 点「仍要打开」。
 
 ## 设置
 
