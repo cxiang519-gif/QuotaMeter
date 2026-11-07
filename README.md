@@ -6,11 +6,11 @@ menu bar: remaining percentage and a compact reset countdown at a glance.
 
 [中文说明](README.zh-CN.md)
 
-![Menu bar items](docs/images/menubar.png)
+<img src="docs/images/menubar.png" width="374" alt="Menu bar items">
 
-![Codex panel](docs/images/codex-panel.png)
-![Muse panel](docs/images/claude-panel.png)
-![System panel](docs/images/system-panel.png)
+<img src="docs/images/codex-panel.png" width="290" alt="Codex panel">
+<img src="docs/images/claude-panel.png" width="280" alt="Muse panel">
+<img src="docs/images/system-panel.png" width="725" alt="System panel">
 
 ## Features
 

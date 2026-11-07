@@ -5,11 +5,11 @@
 
 [English](README.md)
 
-![菜单栏](docs/images/menubar.png)
+<img src="docs/images/menubar.png" width="374" alt="菜单栏">
 
-![Codex 面板](docs/images/codex-panel.png)
-![Muse 面板](docs/images/claude-panel.png)
-![系统面板](docs/images/system-panel.png)
+<img src="docs/images/codex-panel.png" width="290" alt="Codex 面板">
+<img src="docs/images/claude-panel.png" width="280" alt="Muse 面板">
+<img src="docs/images/system-panel.png" width="725" alt="系统面板">
 
 ## 功能
 
