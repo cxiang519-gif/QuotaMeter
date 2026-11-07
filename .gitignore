@@ -1,0 +1,6 @@
+.DS_Store
+QuotaMeter.app/
+*.bak
+*.log
+.build_trigger
+/tmp/
