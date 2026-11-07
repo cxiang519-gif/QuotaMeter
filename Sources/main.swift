@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import UserNotifications
 import WebKit
 
@@ -779,6 +780,10 @@ final class CookieWindowController: NSWindowController {
     var onSave: ((String, String, String, String) -> Void)?
     var onLanguage: ((String) -> Void)?
     private let langPop = NSPopUpButton()
+    private let thresholdField = NSTextField()
+    private let autostartSwitch = NSSwitch()
+    private let compactSwitch = NSSwitch()
+    var onPrefsChanged: (() -> Void)?
 
     convenience init() {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 560),
@@ -793,7 +798,7 @@ final class CookieWindowController: NSWindowController {
         hint.textColor = .secondaryLabelColor
 
         let stack = NSStackView(views: [
-            section(header: L("通用"), card: langCard()),
+            section(header: L("通用"), card: generalCard()),
             hint,
             section(header: L("账号 1"), card: accountCard(nameField: nf1, seg: seg1, tv: tv1,
                         nameKey: "qm_claude_name1", surfaceKey: "qm_claude_surface1", defaultSurface: "app")),
@@ -860,7 +865,7 @@ final class CookieWindowController: NSWindowController {
     private func row(label text: String, control: NSView) -> NSStackView {
         let label = NSTextField(labelWithString: text)
         label.font = NSFont.systemFont(ofSize: 13)
-        label.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        label.widthAnchor.constraint(equalToConstant: 108).isActive = true
         let gap = NSView()
         gap.setContentHuggingPriority(.defaultLow, for: .horizontal)
         gap.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -951,7 +956,7 @@ final class CookieWindowController: NSWindowController {
         return card
     }
 
-    private func langCard() -> NSView {
+    private func generalCard() -> NSView {
         langPop.removeAllItems()
         for t in [L("跟随系统"), "中文", "English", "日本語"] {
             langPop.menu?.addItem(NSMenuItem(title: t, action: nil, keyEquivalent: ""))
@@ -961,22 +966,73 @@ final class CookieWindowController: NSWindowController {
         langPop.selectItem(at: codes.firstIndex(of: cur) ?? 0)
         langPop.target = self
         langPop.action = #selector(langChanged)
-        let r = row(label: L("语言"), control: langPop)
+        let langRow = row(label: L("语言"), control: langPop)
+
+        thresholdField.stringValue = "\(UserDefaults.standard.object(forKey: "qm_low_threshold") as? Int ?? 15)"
+        thresholdField.alignment = .center
+        thresholdField.widthAnchor.constraint(equalToConstant: 52).isActive = true
+        let thrCtl = NSStackView(views: [thresholdField, NSTextField(labelWithString: "%")])
+        thrCtl.orientation = .horizontal; thrCtl.spacing = 4; thrCtl.alignment = .centerY
+        let thrRow = row(label: L("低额提醒"), control: thrCtl)
+
+        autostartSwitch.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        autostartSwitch.target = self
+        autostartSwitch.action = #selector(autostartChanged)
+        let asRow = row(label: L("开机自启"), control: autostartSwitch)
+
+        compactSwitch.state = UserDefaults.standard.bool(forKey: "qm_compact") ? .on : .off
+        compactSwitch.target = self
+        compactSwitch.action = #selector(compactChanged)
+        let cpRow = row(label: L("紧凑模式"), control: compactSwitch)
+
+        let updBtn = NSButton(title: L("检查更新…"), target: self, action: #selector(checkUpdates))
+        updBtn.bezelStyle = .rounded
+        let updRow = row(label: L("更新"), control: updBtn)
+
+        let rows = [langRow, thrRow, asRow, cpRow, updRow]
+        let inner = NSStackView(views: [langRow, hairline(), thrRow, hairline(), asRow, hairline(), cpRow, hairline(), updRow])
+        inner.orientation = .vertical
+        inner.alignment = .leading
+        inner.spacing = 10
+        inner.translatesAutoresizingMaskIntoConstraints = false
+        for v in rows { v.widthAnchor.constraint(equalTo: inner.widthAnchor).isActive = true }
+        for v in inner.arrangedSubviews where v is NSBox {
+            v.widthAnchor.constraint(equalTo: inner.widthAnchor).isActive = true
+        }
         let card = NSView()
         card.wantsLayer = true
         card.layer?.cornerRadius = 10
         card.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
         card.layer?.borderWidth = 0.5
         card.layer?.borderColor = NSColor.separatorColor.cgColor
-        r.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(r)
+        card.addSubview(inner)
         NSLayoutConstraint.activate([
-            r.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 14),
-            r.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14),
-            r.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
-            r.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -12),
+            inner.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 14),
+            inner.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14),
+            inner.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
+            inner.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -12),
         ])
         return card
+    }
+
+    @objc private func autostartChanged() {
+        do {
+            if autostartSwitch.state == .on { try SMAppService.mainApp.register() }
+            else { try SMAppService.mainApp.unregister() }
+            logLine("launch at login -> \(autostartSwitch.state == .on)")
+        } catch {
+            logLine("launch at login failed: \(error.localizedDescription)")
+            autostartSwitch.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        }
+    }
+
+    @objc private func compactChanged() {
+        UserDefaults.standard.set(compactSwitch.state == .on, forKey: "qm_compact")
+        onPrefsChanged?()
+    }
+
+    @objc private func checkUpdates() {
+        NSWorkspace.shared.open(URL(string: "https://github.com/cxiang519-gif/QuotaMeter/releases")!)
     }
 
     @objc private func langChanged() {
@@ -986,6 +1042,9 @@ final class CookieWindowController: NSWindowController {
     }
 
     @objc private func saveClicked() {
+        if let v = Int(thresholdField.stringValue.trimmingCharacters(in: .whitespaces)) {
+            UserDefaults.standard.set(min(max(v, 1), 50), forKey: "qm_low_threshold")
+        }
         UserDefaults.standard.set(seg1.selectedSegment == 1 ? "web" : "app", forKey: "qm_claude_surface1")
         UserDefaults.standard.set(seg2.selectedSegment == 1 ? "web" : "app", forKey: "qm_claude_surface2")
         onSave?(tv1.string.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1229,6 +1288,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         return s.isEmpty ? nil : s
     }
 
+    private var compactMode: Bool { UserDefaults.standard.bool(forKey: "qm_compact") }
     private var claudePrimary: Int {
         get { UserDefaults.standard.integer(forKey: "qm_claude_primary") == 1 ? 1 : 0 }
         set { UserDefaults.standard.set(newValue, forKey: "qm_claude_primary") }
@@ -1279,6 +1339,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
     private let pingTarget = TipTextField.makeLabel("")
     private let pingStatus = TipTextField.makeLabel(L("尚未发送"))
     private let pingHistory = TipTextField.makeLabel("")
+    private let cxLangPop = NSPopUpButton()
+    private let muLangPop = NSPopUpButton()
     private let pingAuto = NSSwitch()
     private let pingAutoWeekly = NSSwitch()
     private let digestHead = NSTextField(labelWithString: L("每日小结"))
@@ -1529,6 +1591,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         cxStatHead.textColor = .secondaryLabelColor
         for l in [cxToday, cxWeek] { l.font = NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .regular) }
         cxUpdated.font = NSFont.systemFont(ofSize: 10.5); cxUpdated.textColor = .secondaryLabelColor
+        for l in [cxBurn, cxWeekBurn, cxCredits] {
+            l.cell?.wraps = true
+            l.maximumNumberOfLines = 2
+            l.lineBreakMode = .byWordWrapping
+            l.preferredMaxLayoutWidth = 252
+            l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        }
         cxUpdated.lineBreakMode = .byTruncatingTail
         cxUpdated.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         pingHead.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
@@ -1600,7 +1669,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             rows: [cxSessionRow, cxBurn, cxWeeklyRow, cxWeekBurn, cxCredits, separator(), cxToday, cxWeek,
                    separator(), pingToggle, pingBox,
                    separator(), digestRow,
-                   separator(), cxShortcutPop],
+                   separator(), cxShortcutPop, separator(), makeLangRow(cxLangPop)],
             buttons: [cxRefresh, cxQuit], footer: cxUpdated)
         codexPanelStack = codexPopover.contentViewController?.view.subviews.first as? NSStackView
         codexPopover.behavior = .transient
@@ -1616,6 +1685,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         muAutoSwitch.target = self; muAutoSwitch.action = #selector(claudeAutoSwitchChanged)
         let muAutoLabel = NSTextField(labelWithString: L("主账号剩余低于 15% 时自动切换"))
         muAutoLabel.font = NSFont.systemFont(ofSize: 11.5)
+        muAutoLabel.cell?.wraps = true
+        muAutoLabel.maximumNumberOfLines = 2
+        muAutoLabel.lineBreakMode = .byWordWrapping
+        muAutoLabel.preferredMaxLayoutWidth = 208
+        muAutoLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let muAutoRow = NSStackView(views: [muAutoSwitch, muAutoLabel])
         muAutoRow.orientation = .horizontal; muAutoRow.spacing = 8; muAutoRow.alignment = .centerY
         muExtra1.lineBreakMode = .byTruncatingTail
@@ -1640,7 +1714,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         muQuit.bezelStyle = .rounded
         claudePopover.contentViewController = panel(
             title: L("Muse 每周额度"),
-            rows: [muRow1, muOpenRow1, separator(), muRow2, muOpenRow2, muSwapRow, separator(), muAutoRow],
+            rows: [muRow1, muOpenRow1, separator(), muRow2, muOpenRow2, muSwapRow, separator(), muAutoRow, separator(), makeLangRow(muLangPop)],
             buttons: [muRefresh, muCookie, muQuit], footer: muUpdated)
         claudePanelStack = claudePopover.contentViewController?.view.subviews.first as? NSStackView
         claudePopover.behavior = .transient
@@ -1858,10 +1932,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
                    title: L("%@已重置", name), body: L("额度已恢复到 100%"))
         }
         prevUsed[key] = used
-        if r < 15, lowNotified[key] != true {
+        let lowTh = Double(UserDefaults.standard.object(forKey: "qm_low_threshold") as? Int ?? 15)
+        if r < lowTh, lowNotified[key] != true {
             lowNotified[key] = true
             notify(id: "low-\(key)", title: L("%@即将用完", name), body: L("仅剩 %d%%", Int(r.rounded())))
-        } else if r >= 25 {
+        } else if r >= lowTh + 10 {
             lowNotified[key] = false
         }
     }
@@ -2348,6 +2423,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
     @objc private func refreshClaudeNow() { fetchClaude() }
     @objc private func quitApp() { NSApp.terminate(nil) }
 
+    /// One language row for a panel footer: label + language popup.
+    /// Changing it stores qm_lang and relaunches, so every label —
+    /// including the ones built once at launch — comes up translated.
+    private func makeLangRow(_ pop: NSPopUpButton) -> NSStackView {
+        pop.removeAllItems()
+        for t in [L("跟随系统"), "中文", "English", "日本語"] {
+            pop.menu?.addItem(NSMenuItem(title: t, action: nil, keyEquivalent: ""))
+        }
+        let codes = ["auto", "zh", "en", "ja"]
+        pop.selectItem(at: codes.firstIndex(of: UserDefaults.standard.string(forKey: "qm_lang") ?? "auto") ?? 0)
+        pop.target = self
+        pop.action = #selector(langPopChanged(_:))
+        pop.font = NSFont.systemFont(ofSize: 12)
+        let lab = NSTextField(labelWithString: L("语言"))
+        lab.font = NSFont.systemFont(ofSize: 11.5)
+        let row = NSStackView(views: [lab, flexSpacer(), pop])
+        row.orientation = .horizontal; row.spacing = 8; row.alignment = .centerY
+        row.widthAnchor.constraint(equalToConstant: 252).isActive = true
+        return row
+    }
+
+    @objc private func langPopChanged(_ sender: NSPopUpButton) {
+        let codes = ["auto", "zh", "en", "ja"]
+        let i = sender.indexOfSelectedItem
+        if codes.indices.contains(i) { setLanguageAndRelaunch(codes[i]) }
+    }
+
+    private func setLanguageAndRelaunch(_ code: String) {
+        if (UserDefaults.standard.string(forKey: "qm_lang") ?? "auto") == code { return }
+        UserDefaults.standard.set(code, forKey: "qm_lang")
+        logLine("language -> \(code); relaunching")
+        let cfg = NSWorkspace.OpenConfiguration()
+        cfg.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: cfg, completionHandler: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { NSApp.terminate(nil) }
+    }
+
     @objc private func openCookieWindow() {
         claudePopover.performClose(nil)
         let wc = CookieWindowController()
@@ -2361,14 +2473,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             self?.lastClaudeFetch = [.distantPast, .distantPast]
             self?.fetchClaude()
         }
-        wc.onLanguage = { code in
-            UserDefaults.standard.set(code, forKey: "qm_lang")
-            logLine("language -> \(code); relaunching")
-            let cfg = NSWorkspace.OpenConfiguration()
-            cfg.createsNewApplicationInstance = true
-            NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: cfg, completionHandler: nil)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { NSApp.terminate(nil) }
-        }
+        wc.onLanguage = { [weak self] code in self?.setLanguageAndRelaunch(code) }
+        wc.onPrefsChanged = { [weak self] in self?.updateCodexUI(); self?.updateClaudeUI() }
         cookieWC = wc
         NSApp.activate(ignoringOtherApps: true)
         wc.showWindow(nil)
@@ -3111,11 +3217,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             }
             b.image = ringIconImage(remaining: dispRemaining, icon: codexAppIcon)
             if let r = dispRemaining {
-                b.title = "\(Int(r.rounded()))%" + (dispReset.map { " · " + compactCountdown($0.timeIntervalSinceNow) } ?? "")
+                b.title = "\(Int(r.rounded()))%" + (compactMode ? "" : (dispReset.map { " · " + compactCountdown($0.timeIntervalSinceNow) } ?? ""))
             } else { b.title = "--" }
             var lenCands: [String] = []
-            if let s = u.sessionRemaining { lenCands.append("\(Int(s.rounded()))%" + (u.sessionReset.map { " · " + compactCountdown($0.timeIntervalSinceNow) } ?? "")) }
-            if let wk = u.weeklyRemaining { lenCands.append("\(Int(wk.rounded()))%" + (u.weeklyReset.map { " · " + compactCountdown($0.timeIntervalSinceNow) } ?? "")) }
+            if let s = u.sessionRemaining { lenCands.append("\(Int(s.rounded()))%" + (compactMode ? "" : (u.sessionReset.map { " · " + compactCountdown($0.timeIntervalSinceNow) } ?? ""))) }
+            if let wk = u.weeklyRemaining { lenCands.append("\(Int(wk.rounded()))%" + (compactMode ? "" : (u.weeklyReset.map { " · " + compactCountdown($0.timeIntervalSinceNow) } ?? ""))) }
             if !lenCands.isEmpty { fitItemLength(codexItem, candidates: lenCands) }
             cxSessionRow.setData(title: L("会话（5 小时）"), remaining: u.sessionRemaining, sub: resetSub(u.sessionReset))
             let (bt, urgent) = burnInfo()
@@ -3218,7 +3324,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         if let u = claudeUsages[disp] {
             b.image = ringIconImage(remaining: u.remaining, icon: claudeAppIcon)
             var t = "\(Int(u.remaining.rounded()))%"
-            if let r = u.resetsAt { t += " · " + compactCountdown(r.timeIntervalSinceNow) }
+            if let r = u.resetsAt, !compactMode { t += " · " + compactCountdown(r.timeIntervalSinceNow) }
             if hasCookie(other), let cn = claudeCustomName(disp), let f = cn.first { t = "\(f) " + t }
             b.title = t
         } else {
@@ -3245,7 +3351,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         for i in 0...1 {
             if let u = claudeUsages[i] {
                 var t = "\(Int(u.remaining.rounded()))%"
-                if let r = u.resetsAt { t += " · " + compactCountdown(r.timeIntervalSinceNow) }
+                if let r = u.resetsAt, !compactMode { t += " · " + compactCountdown(r.timeIntervalSinceNow) }
                 if hasCookie(1 - i), let cn = claudeCustomName(i), let f = cn.first { t = "\(f) " + t }
                 lenCands.append(t)
             }

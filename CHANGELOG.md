@@ -1,9 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-11-08
 
 - Trilingual UI: Simplified Chinese, English and Japanese. Follows the
-  system language by default; switchable in Settings → General.
+  system language by default; switchable in Settings → General, or from
+  the language row at the bottom of either panel.
+- Launch at login (Settings → General).
+- Compact menu bar mode: hide the reset countdowns, keep icon + percent.
+- Low-quota alert threshold is adjustable (Settings → General, percent).
+- Check-for-updates button in Settings → General — manual only, opens
+  the releases page; nothing checks in the background.
+- Long burn-down and reset-credit lines wrap instead of overflowing in
+  English and Japanese.
 
 ## 1.0.0 — 2026-11-07
 
