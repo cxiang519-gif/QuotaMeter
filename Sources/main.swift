@@ -97,6 +97,15 @@ func fmtTokens(_ n: Int) -> String {
 
 func fmtMoney(_ v: Double) -> String { String(format: "$%.2f", v) }
 
+/// Top-up pool sizes: Chinese renders in 亿, other languages via fmtTokens.
+func fmtPoolTokens(_ v: Double) -> String {
+    if currentLang == .zh, v >= 100_000_000 {
+        let y = v / 100_000_000
+        return (y == y.rounded() ? String(format: "%.0f", y) : String(format: "%.1f", y)) + " 亿"
+    }
+    return fmtTokens(Int(v))
+}
+
 func fmtReset(_ date: Date) -> String {
     let df = DateFormatter()
     df.locale = currentLocale; df.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : L("M月d日 HH:mm")
@@ -450,6 +459,7 @@ struct ClaudeUsage {
     var topupText: String?
     var topupExpiry: Date?
     var topupUsedPct: Double?
+    var topupLeftTokens: Double?
     var remaining: Double { max(0, 100 - percentUsed) }
 }
 
@@ -640,6 +650,7 @@ final class ClaudeClient {
                     ?? String(format: "$%.2f left", bal / 1e6)
                 u.topupText = "\(sub["topupRowLabel"] as? String ?? L("额外额度"))：\(value)"
                 u.topupUsedPct = (1 - bal / tot) * 100
+                if tot >= 1_000_000 { u.topupLeftTokens = bal }
             }
             var topupExp: Date? = nil
             var anyExp: Date? = nil
@@ -3286,11 +3297,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
 
     private func claudeExtraText(_ u: ClaudeUsage) -> String {
         var parts: [String] = []
-        if let x = u.topupText {
+        var renderedPool = false
+        if let left = u.topupLeftTokens, let used = u.topupUsedPct {
+            parts.append(L("额外池已用 %d%%（剩余 %@）", Int(used.rounded()), fmtPoolTokens(left)))
+            renderedPool = true
+        } else if let x = u.topupText {
             let core = x.split(separator: "：", maxSplits: 1).last.map(String.init) ?? x
             parts.append(L("额外池 ") + core)
         }
-        if let used = u.topupUsedPct, used >= 0.5 { parts.append(L("已用 %d%%", Int(used.rounded()))) }
+        if !renderedPool, let used = u.topupUsedPct, used >= 0.5 { parts.append(L("已用 %d%%", Int(used.rounded()))) }
         if let e = u.topupExpiry { parts.append(L("%@ 到期", fmtDay(e))) }
         return parts.joined(separator: " · ")
     }
