@@ -5,6 +5,10 @@
 
 [English](README.md)
 
+## 下载
+
+到 [v1.0.0 发布页](https://github.com/cxiang519-gif/QuotaMeter/releases/tag/v1.0.0) 下载 `QuotaMeter-1.0.0.zip`，解压后把应用拖进「应用程序」文件夹。本版为自签名、尚未公证，首次打开要去 系统设置 → 隐私与安全性 点一次「仍要打开」（细节在发布页里）。
+
 <img src="docs/images/menubar.png" width="374" alt="菜单栏">
 
 <img src="docs/images/codex-panel.png" width="290" alt="Codex 面板">

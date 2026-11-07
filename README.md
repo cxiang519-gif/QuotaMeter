@@ -6,6 +6,10 @@ menu bar: remaining percentage and a compact reset countdown at a glance.
 
 [中文说明](README.zh-CN.md)
 
+## Download
+
+Get the ready-to-run app from the [v1.0.0 release page](https://github.com/cxiang519-gif/QuotaMeter/releases/tag/v1.0.0): download `QuotaMeter-1.0.0.zip`, unzip it, and move the app into your Applications folder. The build is ad-hoc signed and not notarized yet, so the first launch needs one trip to System Settings → Privacy & Security → "Open Anyway" (details on the release page).
+
 <img src="docs/images/menubar.png" width="374" alt="Menu bar items">
 
 <img src="docs/images/codex-panel.png" width="290" alt="Codex panel">
