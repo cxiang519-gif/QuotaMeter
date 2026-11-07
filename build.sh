@@ -14,7 +14,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Sources/Info.plist "$APP/Contents/Info.plist"
 
 /usr/bin/swiftc -swift-version 5 -O -sdk "$SDK" \
-  Sources/main.swift Sources/stats.swift Sources/shortcuts.swift \
+  Sources/main.swift Sources/stats.swift Sources/shortcuts.swift Sources/l10n.swift \
   -o "$APP/Contents/MacOS/QuotaMeter"
 
 ICONSET="$(mktemp -d)/AppIcon.iconset"

@@ -98,12 +98,12 @@ func fmtMoney(_ v: Double) -> String { String(format: "$%.2f", v) }
 
 func fmtReset(_ date: Date) -> String {
     let df = DateFormatter()
-    df.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : "M月d日 HH:mm"
+    df.locale = currentLocale; df.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : L("M月d日 HH:mm")
     return df.string(from: date)
 }
 
 func fmtDay(_ date: Date) -> String {
-    let df = DateFormatter(); df.dateFormat = "M月d日"
+    let df = DateFormatter(); df.locale = currentLocale; df.dateFormat = L("M月d日")
     return df.string(from: date)
 }
 
@@ -600,9 +600,9 @@ final class ClaudeClient {
     private func discoverAndPost(completion: @escaping (ClaudeOutcome) -> Void) {
         discover { [self] id in
             guard let id = id else { completion(.signedOut); return }
-            guard !id.isEmpty else { completion(.failed("找不到订阅接口，站点可能改版")); return }
+            guard !id.isEmpty else { completion(.failed(L("找不到订阅接口，站点可能改版"))); return }
             post(actionID: id) { [self] status, body in
-                if isStale(status: status, body: body) { completion(.failed("订阅接口已变更")); return }
+                if isStale(status: status, body: body) { completion(.failed(L("订阅接口已变更"))); return }
                 if signedOut(status: status) { completion(.signedOut); return }
                 UserDefaults.standard.set(id, forKey: kActionKey)
                 finish(status: status, body: body, completion: completion)
@@ -612,7 +612,7 @@ final class ClaudeClient {
 
     private func finish(status: Int, body: String, completion: @escaping (ClaudeOutcome) -> Void) {
         guard status == 200 else { completion(.failed("HTTP \(status)")); return }
-        guard let usage = parse(body) else { completion(.failed("返回内容无法解析")); return }
+        guard let usage = parse(body) else { completion(.failed(L("返回内容无法解析"))); return }
         completion(.ok(usage))
     }
 
@@ -637,7 +637,7 @@ final class ClaudeClient {
                 let value = tokensLeft(sub["topupRowValueLabel"] as? String)
                     ?? (sub["topupRowValueLabel"] as? String)
                     ?? String(format: "$%.2f left", bal / 1e6)
-                u.topupText = "\(sub["topupRowLabel"] as? String ?? "额外额度")：\(value)"
+                u.topupText = "\(sub["topupRowLabel"] as? String ?? L("额外额度"))：\(value)"
                 u.topupUsedPct = (1 - bal / tot) * 100
             }
             var topupExp: Date? = nil
@@ -774,27 +774,30 @@ final class CookieWindowController: NSWindowController {
     private let tv2 = NSTextView()
     private let nf1 = NSTextField()
     private let nf2 = NSTextField()
-    private let seg1 = NSSegmentedControl(labels: ["应用", "网页"], trackingMode: .selectOne, target: nil, action: nil)
-    private let seg2 = NSSegmentedControl(labels: ["应用", "网页"], trackingMode: .selectOne, target: nil, action: nil)
+    private let seg1 = NSSegmentedControl(labels: [L("应用"), L("网页")], trackingMode: .selectOne, target: nil, action: nil)
+    private let seg2 = NSSegmentedControl(labels: [L("应用"), L("网页")], trackingMode: .selectOne, target: nil, action: nil)
     var onSave: ((String, String, String, String) -> Void)?
+    var onLanguage: ((String) -> Void)?
+    private let langPop = NSPopUpButton()
 
     convenience init() {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 560),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "Muse 账号设置"
+        window.title = L("Muse 账号设置")
         window.backgroundColor = .underPageBackgroundColor
         self.init(window: window)
         window.center()
 
-        let hint = NSTextField(wrappingLabelWithString: "Cookie 从浏览器开发者工具里复制，只存本机。账号 2 的 Cookie 要在登录着账号 2 的浏览器里复制。")
+        let hint = NSTextField(wrappingLabelWithString: L("Cookie 从浏览器开发者工具里复制，只存本机。账号 2 的 Cookie 要在登录着账号 2 的浏览器里复制。"))
         hint.font = NSFont.systemFont(ofSize: 11.5)
         hint.textColor = .secondaryLabelColor
 
         let stack = NSStackView(views: [
+            section(header: L("通用"), card: langCard()),
             hint,
-            section(header: "账号 1", card: accountCard(nameField: nf1, seg: seg1, tv: tv1,
+            section(header: L("账号 1"), card: accountCard(nameField: nf1, seg: seg1, tv: tv1,
                         nameKey: "qm_claude_name1", surfaceKey: "qm_claude_surface1", defaultSurface: "app")),
-            section(header: "账号 2", card: accountCard(nameField: nf2, seg: seg2, tv: tv2,
+            section(header: L("账号 2"), card: accountCard(nameField: nf2, seg: seg2, tv: tv2,
                         nameKey: "qm_claude_name2", surfaceKey: "qm_claude_surface2", defaultSurface: "web")),
         ])
         stack.orientation = .vertical
@@ -802,9 +805,9 @@ final class CookieWindowController: NSWindowController {
         stack.spacing = 18
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let cancelBtn = NSButton(title: "取消", target: self, action: #selector(cancelClicked))
+        let cancelBtn = NSButton(title: L("取消"), target: self, action: #selector(cancelClicked))
         cancelBtn.bezelStyle = .rounded
-        let saveBtn = NSButton(title: "保存", target: self, action: #selector(saveClicked))
+        let saveBtn = NSButton(title: L("保存"), target: self, action: #selector(saveClicked))
         saveBtn.bezelStyle = .rounded
         saveBtn.keyEquivalent = "\r"
         let spacer = NSView()
@@ -828,7 +831,7 @@ final class CookieWindowController: NSWindowController {
             btnRow.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -18),
             hint.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])
-        for v in stack.arrangedSubviews.dropFirst() {
+        for v in stack.arrangedSubviews where v !== hint {
             v.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
         content.layoutSubtreeIfNeeded()
@@ -874,18 +877,18 @@ final class CookieWindowController: NSWindowController {
     private func accountCard(nameField: NSTextField, seg: NSSegmentedControl,
                              tv: NSTextView, nameKey: String, surfaceKey: String,
                              defaultSurface: String) -> NSView {
-        nameField.placeholderString = "可留空"
+        nameField.placeholderString = L("可留空")
         nameField.stringValue = UserDefaults.standard.string(forKey: nameKey) ?? ""
         nameField.widthAnchor.constraint(equalToConstant: 230).isActive = true
-        let nameRow = row(label: "名称", control: nameField)
+        let nameRow = row(label: L("名称"), control: nameField)
 
         seg.selectedSegment = (UserDefaults.standard.string(forKey: surfaceKey) ?? defaultSurface) == "web" ? 1 : 0
-        let openRow = row(label: "打开方式", control: seg)
+        let openRow = row(label: L("打开方式"), control: seg)
 
         let cookieLabel = NSTextField(labelWithString: "Cookie")
         cookieLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         cookieLabel.textColor = .secondaryLabelColor
-        let cookieHint = NSTextField(labelWithString: "留空表示不改")
+        let cookieHint = NSTextField(labelWithString: L("留空表示不改"))
         cookieHint.font = NSFont.systemFont(ofSize: 11)
         cookieHint.textColor = .tertiaryLabelColor
         let cookieGap = NSView()
@@ -948,6 +951,40 @@ final class CookieWindowController: NSWindowController {
         return card
     }
 
+    private func langCard() -> NSView {
+        langPop.removeAllItems()
+        for t in [L("跟随系统"), "中文", "English", "日本語"] {
+            langPop.menu?.addItem(NSMenuItem(title: t, action: nil, keyEquivalent: ""))
+        }
+        let codes = ["auto", "zh", "en", "ja"]
+        let cur = UserDefaults.standard.string(forKey: "qm_lang") ?? "auto"
+        langPop.selectItem(at: codes.firstIndex(of: cur) ?? 0)
+        langPop.target = self
+        langPop.action = #selector(langChanged)
+        let r = row(label: L("语言"), control: langPop)
+        let card = NSView()
+        card.wantsLayer = true
+        card.layer?.cornerRadius = 10
+        card.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+        card.layer?.borderWidth = 0.5
+        card.layer?.borderColor = NSColor.separatorColor.cgColor
+        r.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(r)
+        NSLayoutConstraint.activate([
+            r.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 14),
+            r.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14),
+            r.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
+            r.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -12),
+        ])
+        return card
+    }
+
+    @objc private func langChanged() {
+        let codes = ["auto", "zh", "en", "ja"]
+        let i = langPop.indexOfSelectedItem
+        if codes.indices.contains(i) { onLanguage?(codes[i]) }
+    }
+
     @objc private func saveClicked() {
         UserDefaults.standard.set(seg1.selectedSegment == 1 ? "web" : "app", forKey: "qm_claude_surface1")
         UserDefaults.standard.set(seg2.selectedSegment == 1 ? "web" : "app", forKey: "qm_claude_surface2")
@@ -1008,11 +1045,11 @@ final class PingThreadPickerController: NSWindowController {
     convenience init(entries: [(id: String, name: String, updated: Date)]) {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "选择发送「你好」的对话"
+        window.title = L("选择发送「你好」的对话")
         window.center()
         self.init(window: window)
         self.entries = entries
-        let hint = NSTextField(wrappingLabelWithString: "点一个对话作为目标。以后手动和自动发送都发到这个对话里。")
+        let hint = NSTextField(wrappingLabelWithString: L("点一个对话作为目标。以后手动和自动发送都发到这个对话里。"))
         hint.frame = NSRect(x: 16, y: 372, width: 428, height: 36)
         window.contentView?.addSubview(hint)
         let scroll = NSScrollView(frame: NSRect(x: 16, y: 16, width: 428, height: 348))
@@ -1020,8 +1057,8 @@ final class PingThreadPickerController: NSWindowController {
         scroll.borderType = .bezelBorder
         let stack = NSStackView()
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 6
-        let df = DateFormatter(); df.dateFormat = "M月d日 HH:mm"
-        let createBtn = NSButton(title: "＋ 新建专用对话（推荐，这个对话平时别在应用里打开）", target: self, action: #selector(pick(_:)))
+        let df = DateFormatter(); df.locale = currentLocale; df.dateFormat = L("M月d日 HH:mm")
+        let createBtn = NSButton(title: L("＋ 新建专用对话（推荐，这个对话平时别在应用里打开）"), target: self, action: #selector(pick(_:)))
         createBtn.bezelStyle = .rounded; createBtn.alignment = .left; createBtn.tag = -1
         createBtn.translatesAutoresizingMaskIntoConstraints = false
         createBtn.widthAnchor.constraint(equalToConstant: 396).isActive = true
@@ -1034,7 +1071,7 @@ final class PingThreadPickerController: NSWindowController {
             stack.addArrangedSubview(b)
         }
         if entries.isEmpty {
-            stack.addArrangedSubview(NSTextField(labelWithString: "没读到对话列表（~/.codex/session_index.jsonl）"))
+            stack.addArrangedSubview(NSTextField(labelWithString: L("没读到对话列表（~/.codex/session_index.jsonl）")))
         }
         scroll.documentView = stack
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -1077,7 +1114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
     private var selfIdlePrev: (cpuSec: Double, time: Date)?
     private var sysIconCache: [String: NSImage] = [:]
     private let sysCPUBox = NSStackView()
-    private let sysTotals = NSTextField(labelWithString: "整机：…")
+    private let sysTotals = NSTextField(labelWithString: L("整机：…"))
     private let sparkCPU = SparkView()
     private let sparkMem = SparkView()
     private let sparkEnergy = SparkView()
@@ -1114,10 +1151,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
     private var outsideClickMonitor: Any?
 
     private var codexUsage: CodexUsage?
-    private var codexStatus = "尚未获取"
+    private var codexStatus = L("尚未获取")
     private var codexCredits: [ResetCredit]?
     private var claudeUsages: [ClaudeUsage?] = [nil, nil]
-    private var claudeStatuses = ["尚未获取", "尚未获取"]
+    private var claudeStatuses = [L("尚未获取"), L("尚未获取")]
     private func claudeSurface(_ i: Int) -> String {
         let def = i == 0 ? "app" : "web"
         return UserDefaults.standard.string(forKey: "qm_claude_surface\(i + 1)") ?? def
@@ -1144,7 +1181,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             let raw = UserDefaults.standard.string(forKey: i == 0 ? kCookieKey : kCookie2Key) ?? ""
             if webWCs[i] == nil {
                 webWCs[i] = ClaudeWebWindowController(cookies: museCookies(from: raw), stamp: raw, slot: i)
-                webWCs[i]?.window?.title = "\(claudeName(i)) · Muse 网页"
+                webWCs[i]?.window?.title = L("%@ · Muse 网页", claudeName(i))
                 webStamps[i] = raw
                 logLine("Muse webview prewarmed slot \(i + 1)")
             }
@@ -1173,7 +1210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             webStamps[i] = raw
         }
         guard let wc = webWCs[i] else { return }
-        wc.window?.title = "\(claudeName(i)) · Muse 网页"
+        wc.window?.title = L("%@ · Muse 网页", claudeName(i))
         NSApp.activate(ignoringOtherApps: true)
         wc.showWindow(nil)
         wc.window?.makeKeyAndOrderFront(nil)
@@ -1183,7 +1220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
     private func claudeName(_ i: Int) -> String {
         let s = (UserDefaults.standard.string(forKey: i == 0 ? "qm_claude_name1" : "qm_claude_name2") ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return s.isEmpty ? "账号 \(i + 1)" : s
+        return s.isEmpty ? L("账号 %d", i + 1) : s
     }
 
     private func claudeCustomName(_ i: Int) -> String? {
@@ -1228,23 +1265,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
     private let cxWeekBurn = NSTextField(labelWithString: "")
     private let cxWeeklyRow = BarRow()
     private let cxCredits = NSTextField(labelWithString: "")
-    private let cxStatHead = NSTextField(labelWithString: "用量统计（估算）")
+    private let cxStatHead = NSTextField(labelWithString: L("用量统计（估算）"))
     private let cxToday = NSTextField(labelWithString: "")
     private let cxWeek = NSTextField(labelWithString: "")
     private let cxUpdated = TipTextField.makeLabel("")
     private let cxShortcutPop = NSPopUpButton()
     // Ping (卡五小时窗口)
-    private let pingHead = NSTextField(labelWithString: "卡五小时窗口")
+    private let pingHead = NSTextField(labelWithString: L("卡五小时窗口"))
     private let pingToggle = NSButton()
     private let pingBox = NSStackView()
     private var codexPanelStack: NSStackView?
     private var claudePanelStack: NSStackView?
     private let pingTarget = TipTextField.makeLabel("")
-    private let pingStatus = TipTextField.makeLabel("尚未发送")
+    private let pingStatus = TipTextField.makeLabel(L("尚未发送"))
     private let pingHistory = TipTextField.makeLabel("")
     private let pingAuto = NSSwitch()
     private let pingAutoWeekly = NSSwitch()
-    private let digestHead = NSTextField(labelWithString: "每日小结")
+    private let digestHead = NSTextField(labelWithString: L("每日小结"))
     private let digestSwitch = NSSwitch()
     private let digestHourPop = NSPopUpButton()
     private var lastWeeklyBoundary: Date?
@@ -1260,8 +1297,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
     private let muExtra2 = TipTextField.makeLabel("")
     private let muUpdated = TipTextField.makeLabel("")
     private let muSwap = NSButton(title: "", target: nil, action: nil)
-    private let muOpen1 = NSButton(title: "打开", target: nil, action: nil)
-    private let muOpen2 = NSButton(title: "打开", target: nil, action: nil)
+    private let muOpen1 = NSButton(title: L("打开"), target: nil, action: nil)
+    private let muOpen2 = NSButton(title: L("打开"), target: nil, action: nil)
     private var muRowSlot = [0, 1]
     private var webWCs: [Int: ClaudeWebWindowController] = [:]
     private var webStamps: [Int: String] = [:]
@@ -1307,7 +1344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             b.image = img
             b.action = #selector(toggleSys)
             b.target = self
-            b.toolTip = "系统资源占用（内存 / 能耗 Top 5）"
+            b.toolTip = L("系统资源占用（内存 / 能耗 Top 5）")
         }
         buildPanels()
         schedulerTick()
@@ -1463,7 +1500,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
 
     private func applyPingSection() {
         let open = UserDefaults.standard.bool(forKey: "qm_ping_section_open")
-        pingToggle.title = (open ? "▾ " : "▸ ") + "卡五小时窗口"
+        pingToggle.title = (open ? "▾ " : "▸ ") + L("卡五小时窗口")
         pingBox.isHidden = !open
         syncPanelSize(codexPopover)
     }
@@ -1505,9 +1542,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         pingHistory.font = NSFont.systemFont(ofSize: 10.5); pingHistory.textColor = .secondaryLabelColor
         pingHistory.maximumNumberOfLines = 6
         pingHistory.lineBreakMode = .byWordWrapping
-        let pingSelect = NSButton(title: "选择对话…", target: self, action: #selector(openPingPicker))
+        let pingSelect = NSButton(title: L("选择对话…"), target: self, action: #selector(openPingPicker))
         pingSelect.bezelStyle = .rounded
-        let pingSend = NSButton(title: "立即发送你好", target: self, action: #selector(pingNow))
+        let pingSend = NSButton(title: L("立即发送你好"), target: self, action: #selector(pingNow))
         pingSend.bezelStyle = .rounded
         let pingTargetRow = NSStackView(views: [pingTarget, flexSpacer(), pingSelect])
         pingTargetRow.orientation = .horizontal; pingTargetRow.spacing = 8; pingTargetRow.alignment = .centerY
@@ -1516,10 +1553,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         pingStatusRow.orientation = .horizontal; pingStatusRow.spacing = 8; pingStatusRow.alignment = .centerY
         pingStatusRow.widthAnchor.constraint(equalToConstant: 252).isActive = true
         pingAuto.target = self; pingAuto.action = #selector(pingAutoChanged)
-        let pingAutoLabel = NSTextField(labelWithString: "自动发送")
+        let pingAutoLabel = NSTextField(labelWithString: L("自动发送"))
         pingAutoLabel.font = NSFont.systemFont(ofSize: 11.5)
         pingAutoWeekly.target = self; pingAutoWeekly.action = #selector(pingAutoWeeklyChanged)
-        let pingWeeklyLabel = NSTextField(labelWithString: "周也自动")
+        let pingWeeklyLabel = NSTextField(labelWithString: L("周也自动"))
         pingWeeklyLabel.font = NSFont.systemFont(ofSize: 11.5)
         let pingAutoRow = NSStackView(views: [pingAuto, pingAutoLabel, pingAutoWeekly, pingWeeklyLabel])
         pingAutoRow.orientation = .horizontal; pingAutoRow.spacing = 6; pingAutoRow.alignment = .centerY
@@ -1533,7 +1570,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         }
         digestHourPop.selectItem(withTag: UserDefaults.standard.object(forKey: "qm_digest_hour") as? Int ?? 22)
         digestHourPop.target = self; digestHourPop.action = #selector(digestHourChanged)
-        let digestLabel = NSTextField(labelWithString: "每日小结")
+        let digestLabel = NSTextField(labelWithString: L("每日小结"))
         digestLabel.font = NSFont.systemFont(ofSize: 11.5)
         let digestRow = NSStackView(views: [digestSwitch, digestLabel, digestHourPop])
         digestRow.orientation = .horizontal; digestRow.spacing = 8; digestRow.alignment = .centerY
@@ -1548,9 +1585,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             pingBox.addArrangedSubview(v)
         }
         applyPingSection()
-        let cxRefresh = NSButton(title: "刷新", target: self, action: #selector(refreshCodexNow))
+        let cxRefresh = NSButton(title: L("刷新"), target: self, action: #selector(refreshCodexNow))
         cxRefresh.bezelStyle = .rounded
-        let cxQuit = NSButton(title: "退出", target: self, action: #selector(quitApp))
+        let cxQuit = NSButton(title: L("退出"), target: self, action: #selector(quitApp))
         cxQuit.bezelStyle = .rounded
         cxShortcutPop.pullsDown = true
         cxShortcutPop.bezelStyle = .rounded
@@ -1559,7 +1596,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         cxShortcutPop.widthAnchor.constraint(equalToConstant: 252).isActive = true
         rebuildShortcutMenu()
         codexPopover.contentViewController = panel(
-            title: "Codex 额度",
+            title: L("Codex 额度"),
             rows: [cxSessionRow, cxBurn, cxWeeklyRow, cxWeekBurn, cxCredits, separator(), cxToday, cxWeek,
                    separator(), pingToggle, pingBox,
                    separator(), digestRow,
@@ -1577,7 +1614,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         muOpen2.target = self; muOpen2.action = #selector(openClaudeRow2)
         muOpen2.bezelStyle = .rounded; muOpen2.font = NSFont.systemFont(ofSize: 12)
         muAutoSwitch.target = self; muAutoSwitch.action = #selector(claudeAutoSwitchChanged)
-        let muAutoLabel = NSTextField(labelWithString: "主账号剩余低于 15% 时自动切换")
+        let muAutoLabel = NSTextField(labelWithString: L("主账号剩余低于 15% 时自动切换"))
         muAutoLabel.font = NSFont.systemFont(ofSize: 11.5)
         let muAutoRow = NSStackView(views: [muAutoSwitch, muAutoLabel])
         muAutoRow.orientation = .horizontal; muAutoRow.spacing = 8; muAutoRow.alignment = .centerY
@@ -1595,14 +1632,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         muUpdated.font = NSFont.systemFont(ofSize: 10.5); muUpdated.textColor = .secondaryLabelColor
         muUpdated.lineBreakMode = .byTruncatingTail
         muUpdated.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let muRefresh = NSButton(title: "刷新", target: self, action: #selector(refreshClaudeNow))
+        let muRefresh = NSButton(title: L("刷新"), target: self, action: #selector(refreshClaudeNow))
         muRefresh.bezelStyle = .rounded
-        let muCookie = NSButton(title: "设置…", target: self, action: #selector(openCookieWindow))
+        let muCookie = NSButton(title: L("设置…"), target: self, action: #selector(openCookieWindow))
         muCookie.bezelStyle = .rounded
-        let muQuit = NSButton(title: "退出", target: self, action: #selector(quitApp))
+        let muQuit = NSButton(title: L("退出"), target: self, action: #selector(quitApp))
         muQuit.bezelStyle = .rounded
         claudePopover.contentViewController = panel(
-            title: "Muse 每周额度",
+            title: L("Muse 每周额度"),
             rows: [muRow1, muOpenRow1, separator(), muRow2, muOpenRow2, muSwapRow, separator(), muAutoRow],
             buttons: [muRefresh, muCookie, muQuit], footer: muUpdated)
         claudePanelStack = claudePopover.contentViewController?.view.subviews.first as? NSStackView
@@ -1626,11 +1663,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             let sc = strip.widthAnchor.constraint(equalToConstant: 252); sc.isActive = true; sysColW.append(sc)
             strip.heightAnchor.constraint(equalToConstant: 6).isActive = true
         }
-        let memCol = NSStackView(views: [sysCapMem, stripMem, sectionHead("内存 Top 5"), sysMemBox])
+        let memCol = NSStackView(views: [sysCapMem, stripMem, sectionHead(L("内存 Top 5")), sysMemBox])
         memCol.orientation = .vertical; memCol.alignment = .leading; memCol.spacing = 5
         let cpuCol = NSStackView(views: [sysCapCPU, stripCPU, sectionHead("CPU Top 5"), sysCPUBox])
         cpuCol.orientation = .vertical; cpuCol.alignment = .leading; cpuCol.spacing = 5
-        let enCol = NSStackView(views: [sysCapEnergy, stripEnergy, sectionHead("能耗 Top 5"), sysEnergyBox])
+        let enCol = NSStackView(views: [sysCapEnergy, stripEnergy, sectionHead(L("能耗 Top 5")), sysEnergyBox])
         enCol.orientation = .vertical; enCol.alignment = .leading; enCol.spacing = 5
         let cols = NSStackView(views: [memCol, cpuCol, enCol])
         cols.orientation = .horizontal; cols.alignment = .top; cols.spacing = 10
@@ -1640,7 +1677,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         sparkMem.color = .systemBlue
         sparkEnergy.color = .systemOrange
         var sparkCols: [NSView] = []
-        for (spark, cap) in [(sparkCPU, "CPU"), (sparkMem, "内存"), (sparkEnergy, "能耗")] {
+        for (spark, cap) in [(sparkCPU, "CPU"), (sparkMem, L("内存")), (sparkEnergy, L("能耗"))] {
             spark.translatesAutoresizingMaskIntoConstraints = false
             let kc = spark.widthAnchor.constraint(equalToConstant: 252); kc.isActive = true; sysColW.append(kc)
             spark.heightAnchor.constraint(equalToConstant: 34).isActive = true
@@ -1657,15 +1694,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         let sysSep = NSBox(); sysSep.boxType = .separator
         sysSep.translatesAutoresizingMaskIntoConstraints = false
         let cc3 = sysSep.widthAnchor.constraint(equalToConstant: 776); cc3.isActive = true; sysInnerW.append(cc3)
-        let sysRefresh = NSButton(title: "刷新", target: self, action: #selector(sysRefreshNow))
+        let sysRefresh = NSButton(title: L("刷新"), target: self, action: #selector(sysRefreshNow))
         sysRefresh.bezelStyle = .rounded
-        let sysQuit = NSButton(title: "退出", target: self, action: #selector(quitApp))
+        let sysQuit = NSButton(title: L("退出"), target: self, action: #selector(quitApp))
         sysQuit.bezelStyle = .rounded
         for b in [sysRefresh, sysQuit] { b.font = NSFont.systemFont(ofSize: 11.5) }
         let sysBtnRow = NSStackView(views: [sysSelf, flexSpacer(), sysRefresh, sysQuit])
         sysBtnRow.orientation = .horizontal; sysBtnRow.spacing = 8; sysBtnRow.alignment = .centerY
         let cc4 = sysBtnRow.widthAnchor.constraint(equalToConstant: 776); cc4.isActive = true; sysInnerW.append(cc4)
-        let sysTitle = NSTextField(labelWithString: "系统资源")
+        let sysTitle = NSTextField(labelWithString: L("系统资源"))
         sysTitle.font = NSFont.systemFont(ofSize: 12.5, weight: .semibold)
         sysPinBtn.target = self; sysPinBtn.action = #selector(toggleSysPin)
         sysPinBtn.bezelStyle = .inline; sysPinBtn.isBordered = false
@@ -1789,7 +1826,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         sysPopover.behavior = sysPinned ? .applicationDefined : .transient
         sysPinBtn.image = NSImage(systemSymbolName: sysPinned ? "pin.fill" : "pin", accessibilityDescription: nil)
         sysPinBtn.contentTintColor = sysPinned ? .controlAccentColor : .secondaryLabelColor
-        sysPinBtn.toolTip = sysPinned ? "已钉住，点击取消" : "钉住面板"
+        sysPinBtn.toolTip = sysPinned ? L("已钉住，点击取消") : L("钉住面板")
     }
 
     @objc private func toggleSysPin() {
@@ -1818,12 +1855,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         let used = 100 - r
         if let prev = prevUsed[key], prev >= 50, used <= 2 {
             notify(id: "reset-\(key)-\(Int(Date().timeIntervalSince1970))",
-                   title: "\(name)已重置", body: "额度已恢复到 100%")
+                   title: L("%@已重置", name), body: L("额度已恢复到 100%"))
         }
         prevUsed[key] = used
         if r < 15, lowNotified[key] != true {
             lowNotified[key] = true
-            notify(id: "low-\(key)", title: "\(name)即将用完", body: "仅剩 \(Int(r.rounded()))%")
+            notify(id: "low-\(key)", title: L("%@即将用完", name), body: L("仅剩 %d%%", Int(r.rounded())))
         } else if r >= 25 {
             lowNotified[key] = false
         }
@@ -1843,8 +1880,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             let key = "credit-\(label)-\(Int(nearest.timeIntervalSince1970))"
             if creditNotified.contains(key) { continue }
             creditNotified.insert(key)
-            notify(id: key, title: "重置券即将到期",
-                   body: "\(soon.count) 张 Codex 重置券将在 \(fmtDay(nearest)) 到期（\(compactCountdown(nearest.timeIntervalSince(now))) 后），别浪费")
+            notify(id: key, title: L("重置券即将到期"),
+                   body: L("%d 张 Codex 重置券将在 %@ 到期（%@ 后），别浪费", soon.count, fmtDay(nearest), compactCountdown(nearest.timeIntervalSince(now))))
         }
     }
 
@@ -1863,17 +1900,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         if hoursLeft > 24 { return ("", false) }
         if let reset = u.sessionReset, hoursLeft * 3600 >= reset.timeIntervalSinceNow { return ("", false) }
         let eta = now.addingTimeInterval(hoursLeft * 3600)
-        return ("按当前速度约 \(fmtReset(eta)) 用完", hoursLeft < 1)
+        return (L("按当前速度约 %@ 用完", fmtReset(eta)), hoursLeft < 1)
     }
 
     private func rebuildShortcutMenu() {
         let menu = NSMenu()
-        let head = NSMenuItem(title: "快捷对话", action: nil, keyEquivalent: "")
+        let head = NSMenuItem(title: L("快捷对话"), action: nil, keyEquivalent: "")
         menu.addItem(head)
         menu.addItem(.separator())
         let links = ShortcutsController.storedLinks
         if links.isEmpty {
-            let it = NSMenuItem(title: "（还没有添加）", action: nil, keyEquivalent: "")
+            let it = NSMenuItem(title: L("（还没有添加）"), action: nil, keyEquivalent: "")
             it.isEnabled = false
             menu.addItem(it)
         } else {
@@ -1886,7 +1923,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             }
         }
         menu.addItem(.separator())
-        let mg = NSMenuItem(title: "管理快捷对话…", action: #selector(openShortcutEditor), keyEquivalent: "")
+        let mg = NSMenuItem(title: L("管理快捷对话…"), action: #selector(openShortcutEditor), keyEquivalent: "")
         mg.target = self
         menu.addItem(mg)
         cxShortcutPop.menu = menu
@@ -2083,7 +2120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             fillSysBox(sysEnergyBox, rows: [], placeholder: "")
         } else {
             let totW = max(watts.reduce(0) { $0 + $1.1 }, 0.0001)
-            sysCapEnergy.stringValue = String(format: "应用合计 %.1f W", totW)
+            sysCapEnergy.stringValue = String(format: L("应用合计 %.1f W"), totW)
             let enAlphas: [Double] = [0.95, 0.75, 0.58, 0.43, 0.3]
             if sysDesignMaxW > 0 {
                 // Strip scales to the chip's design peak; the row bars
@@ -2141,8 +2178,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             var footText = ""
             var ru6 = rusage_info_v6()
             let rc: Int32 = readRusage(getpid(), RUSAGE_INFO_V6, into: &ru6) ? 0 : -1
-            if rc == 0 { footText = "内存 \(fmtBytes(ru6.ri_phys_footprint))" }
-            sysSelf.stringValue = "额度环自身：\(footText)\(pct)"
+            if rc == 0 { footText = L("内存 %@", fmtBytes(ru6.ri_phys_footprint)) }
+            sysSelf.stringValue = L("额度环自身：%1$@%2$@", footText, pct)
         }
         recordTotals(now: now)
         if sysPopover.isShown { syncPanelSize(sysPopover) }
@@ -2272,9 +2309,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         sysMemUsedFrac01 = t.memTotalGB > 0 ? t.memUsedGB / t.memTotalGB : 0
         appendHist(&histMem, now, t.memUsedGB)
         sparkMem.ceiling = t.memTotalGB > 0 ? t.memTotalGB : nil
-        sysCapCPU.stringValue = t.cpuPct.map { String(format: "整机 %.0f%%", $0) } ?? ""
-        var memCap = String(format: "已用 %.1f / %.0f GB · 空闲 %.1f GB", t.memUsedGB, t.memTotalGB, t.memFreeGB)
-        if t.pressure >= 2 { memCap += " · 压力偏高" }
+        sysCapCPU.stringValue = t.cpuPct.map { String(format: L("整机 %.0f%%"), $0) } ?? ""
+        var memCap = String(format: L("已用 %.1f / %.0f GB · 空闲 %.1f GB"), t.memUsedGB, t.memTotalGB, t.memFreeGB)
+        if t.pressure >= 2 { memCap += L(" · 压力偏高") }
         sysCapMem.stringValue = memCap
         sparkCPU.values = histCPU.map { $0.1 }
         sparkMem.values = histMem.map { $0.1 }
@@ -2324,6 +2361,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             self?.lastClaudeFetch = [.distantPast, .distantPast]
             self?.fetchClaude()
         }
+        wc.onLanguage = { code in
+            UserDefaults.standard.set(code, forKey: "qm_lang")
+            logLine("language -> \(code); relaunching")
+            let cfg = NSWorkspace.OpenConfiguration()
+            cfg.createsNewApplicationInstance = true
+            NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: cfg, completionHandler: nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { NSApp.terminate(nil) }
+        }
         cookieWC = wc
         NSApp.activate(ignoringOtherApps: true)
         wc.showWindow(nil)
@@ -2345,7 +2390,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             if dt > 1 { cpuText = String(format: " · CPU %.1f%%", (cpuSec - p.cpuSec) / dt * 100) }
         }
         selfIdlePrev = (cpuSec, now)
-        sysItem.button?.toolTip = "额度环静息：内存 \(fmtBytes(ru6.ri_phys_footprint))\(cpuText)"
+        sysItem.button?.toolTip = L("额度环静息：内存 %1$@%2$@", fmtBytes(ru6.ri_phys_footprint), cpuText)
     }
 
     private func schedulerTick() {
@@ -2373,7 +2418,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
                 self.codexFetching = false
                 switch outcome {
                 case .ok(let u):
-                    self.codexUsage = u; self.codexStatus = "正常"
+                    self.codexUsage = u; self.codexStatus = L("正常")
                     self.detectRoll(u: u)
                     if let r = u.sessionReset { self.lastSessionBoundary = r }
                     if let r = u.weeklyReset { self.lastWeeklyBoundary = r }
@@ -2390,16 +2435,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
                         self.sessionSamples.append((Date(), su))
                         self.sessionSamples = self.sessionSamples.filter { Date().timeIntervalSince($0.0) <= 2 * 3600 }
                     }
-                    self.checkWindow(key: "codex-session", name: "Codex 5 小时额度", remaining: u.sessionRemaining)
-                    self.checkWindow(key: "codex-weekly", name: "Codex 每周额度", remaining: u.weeklyRemaining)
+                    self.checkWindow(key: "codex-session", name: L("Codex 5 小时额度"), remaining: u.sessionRemaining)
+                    self.checkWindow(key: "codex-weekly", name: L("Codex 每周额度"), remaining: u.weeklyRemaining)
                 case .noAuth:
-                    self.codexUsage = nil; self.codexStatus = "未找到 Codex 登录文件（~/.codex/auth.json）"
+                    self.codexUsage = nil; self.codexStatus = L("未找到 Codex 登录文件（~/.codex/auth.json）")
                     logLine("codex: no auth file")
                 case .expired:
-                    self.codexStatus = "登录已过期，用一次 Codex 后自动恢复"
+                    self.codexStatus = L("登录已过期，用一次 Codex 后自动恢复")
                     logLine("codex: token expired")
                 case .failed(let m):
-                    self.codexStatus = "出错：\(m)"
+                    self.codexStatus = L("出错：%@", m)
                     logLine("codex failed: \(m)")
                 }
                 self.updateCodexUI()
@@ -2429,7 +2474,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
     private func fetchClaude() {
         for i in 0...1 where hasCookie(i) { fetchClaudeAccount(i) }
         if !hasCookie(0) && !hasCookie(1) {
-            claudeStatuses[0] = "未设置 Cookie：点我后选「设置 Cookie…」"
+            claudeStatuses[0] = L("未设置 Cookie：点我后选「设置 Cookie…」")
             updateClaudeUI()
         }
     }
@@ -2445,16 +2490,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
                 self.claudeFetching[i] = false
                 switch outcome {
                 case .ok(let u):
-                    self.claudeUsages[i] = u; self.claudeStatuses[i] = "正常"
+                    self.claudeUsages[i] = u; self.claudeStatuses[i] = L("正常")
                     logLine("Muse[\(i + 1)] ok used=\(Int(u.percentUsed))%")
-                    self.checkWindow(key: "claude-weekly-\(i + 1)", name: "Muse \(label) 每周额度", remaining: u.remaining)
+                    self.checkWindow(key: "claude-weekly-\(i + 1)", name: L("Muse %@ 每周额度", label), remaining: u.remaining)
                 case .noCookie:
-                    self.claudeStatuses[i] = "未设置 Cookie"
+                    self.claudeStatuses[i] = L("未设置 Cookie")
                 case .signedOut:
-                    self.claudeUsages[i] = nil; self.claudeStatuses[i] = "登录已过期：重新粘贴 Cookie"
+                    self.claudeUsages[i] = nil; self.claudeStatuses[i] = L("登录已过期：重新粘贴 Cookie")
                     logLine("Muse[\(i + 1)]: signed out")
                 case .failed(let m):
-                    self.claudeStatuses[i] = "出错：\(m)"
+                    self.claudeStatuses[i] = L("出错：%@", m)
                     logLine("Muse[\(i + 1)] failed: \(m)")
                 }
                 self.updateClaudeUI()
@@ -2603,8 +2648,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
     /// system prompt (which is what makes the CLI path cost ~12k+ tokens).
     /// Shape mirrors windowping's measured api mode (~16 tokens per ping).
     private func pingViaAPI() -> (ok: Bool, tokens: Int?, error: String?) {
-        guard let auth = codexClient.pingAuth() else { return (false, nil, "读不到登录令牌") }
-        guard let model = cheapestCodexModel() else { return (false, nil, "读不到模型目录") }
+        guard let auth = codexClient.pingAuth() else { return (false, nil, L("读不到登录令牌")) }
+        guard let model = cheapestCodexModel() else { return (false, nil, L("读不到模型目录")) }
         let body: [String: Any] = [
             "model": model,
             "stream": true,
@@ -2640,8 +2685,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             resultErr = e
             sema.signal()
         }.resume()
-        if sema.wait(timeout: .now() + 70) == .timedOut { return (false, nil, "接口超时") }
-        if let e = resultErr { return (false, nil, "网络错误 \(e.localizedDescription)") }
+        if sema.wait(timeout: .now() + 70) == .timedOut { return (false, nil, L("接口超时")) }
+        if let e = resultErr { return (false, nil, L("网络错误 %@", e.localizedDescription)) }
         guard resultStatus == 200, let data = resultData else {
             let snippet = resultData.map { String(decoding: $0.prefix(300), as: UTF8.self) } ?? ""
             return (false, nil, "HTTP \(resultStatus): \(snippet)")
@@ -2669,13 +2714,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
                     outTok = (u["output_tokens"] as? NSNumber)?.intValue
                 }
             } else if kind == "error" || kind == "response.failed" {
-                if let eobj = ev["error"] as? [String: Any] { failure = (eobj["message"] as? String) ?? "请求失败" }
+                if let eobj = ev["error"] as? [String: Any] { failure = (eobj["message"] as? String) ?? L("请求失败") }
                 else if let es = ev["error"] as? String { failure = es }
-                else { failure = "请求失败" }
+                else { failure = L("请求失败") }
             }
         }
         if let f = failure, !completed { return (false, nil, f) }
-        guard completed else { return (false, nil, "数据流未完成") }
+        guard completed else { return (false, nil, L("数据流未完成")) }
         let total = (inTok != nil || outTok != nil) ? (inTok ?? 0) + (outTok ?? 0) : nil
         logLine("ping api ok model=\(model) tokens=\(total ?? -1)")
         return (true, total, nil)
@@ -2685,7 +2730,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         guard !pingSending else { return }
         pingTouched = true
         pingSending = true
-        pingStatus.stringValue = "发送中…"
+        pingStatus.stringValue = L("发送中…")
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
             let api = self.pingViaAPI()
@@ -2697,7 +2742,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             let id = UserDefaults.standard.string(forKey: "qm_ping_thread") ?? ""
             guard !id.isEmpty, let bin = self.resolveCodexBinary() else {
                 self.finishPing(auto: auto, boundary: boundary, weeklyBoundary: weeklyBoundary, ok: false, route: "接口", tokens: nil,
-                                failText: "发送失败：接口不通（\(api.error ?? "")），也没有可用的命令行兜底",
+                                failText: L("发送失败：接口不通（%@），也没有可用的命令行兜底", api.error ?? ""),
                                 logText: "api failed and no cli fallback: \(api.error ?? "")")
                 return
             }
@@ -2713,11 +2758,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
                 self.finishPing(auto: auto, boundary: boundary, weeklyBoundary: weeklyBoundary, ok: true, route: "命令行", tokens: nil, failText: "", logText: "")
             } else if res.tail.contains("active writer") {
                 self.finishPing(auto: auto, boundary: boundary, weeklyBoundary: weeklyBoundary, ok: false, route: "命令行", tokens: nil,
-                                failText: "发送失败：这个对话正开在 ChatGPT 里被占用——在应用里切到别的对话，或改用专用对话",
+                                failText: L("发送失败：这个对话正开在 ChatGPT 里被占用——在应用里切到别的对话，或改用专用对话"),
                                 logText: "cli code=\(res.code) tail=\(res.tail)")
             } else {
                 self.finishPing(auto: auto, boundary: boundary, weeklyBoundary: weeklyBoundary, ok: false, route: "命令行", tokens: nil,
-                                failText: "发送失败（退出码 \(res.code)），详情看日志",
+                                failText: L("发送失败（退出码 %d），详情看日志", res.code),
                                 logText: "cli code=\(res.code) tail=\(res.tail)")
             }
         }
@@ -2731,7 +2776,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
                 if let b = boundary { UserDefaults.standard.set(b.timeIntervalSince1970, forKey: "qm_ping_last_reset") }
                 if let wb = weeklyBoundary { UserDefaults.standard.set(wb.timeIntervalSince1970, forKey: "qm_ping_last_weekly_reset") }
                 let df = DateFormatter(); df.dateFormat = "HH:mm"
-                var s = "已发送 \(df.string(from: Date())) · \(route)"
+                var s = L("已发送 %@ · %@", df.string(from: Date()), L(route))
                 if let t = tokens { s += " · \(t) tokens" }
                 self.pingStatus.stringValue = s
                 logLine("ping ok (\(auto ? "auto" : "manual"), via \(route)" + (tokens.map { ", \($0) tokens" } ?? ""))
@@ -2742,7 +2787,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
                 self.recordPing(kind: kind, ok: true, tokens: tokens)
                 if auto {
                     self.notify(id: "ping-ok-\(Int(Date().timeIntervalSince1970))",
-                                title: "自动发送你好成功", body: "五小时新窗口已经开启")
+                                title: L("自动发送你好成功"), body: L("五小时新窗口已经开启"))
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in self?.fetchCodex() }
             } else {
@@ -2752,7 +2797,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
                 logLine("ping failed: \(logText)")
                 if auto {
                     self.notify(id: "ping-fail-\(Int(Date().timeIntervalSince1970))",
-                                title: "自动发送你好失败", body: "卡窗口没成功，点开 Codex 面板看一眼")
+                                title: L("自动发送你好失败"), body: L("卡窗口没成功，点开 Codex 面板看一眼"))
                 }
             }
             self.updateCodexUI()
@@ -2779,7 +2824,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             func g(_ re: NSRegularExpression, _ mm: NSTextCheckingResult, _ i: Int) -> String {
                 String(s[Range(mm.range(at: i), in: s)!])
             }
-            let kind = g(logRe, m, 1) == "auto" ? "自动" : "手动"
+            let kind = g(logRe, m, 1) == "auto" ? L("自动") : L("手动")
             found["\(g(timeRe, tm, 1)):\(g(timeRe, tm, 2))|\(kind)|\(g(logRe, m, 2))"] = Int(g(logRe, m, 3))
         }
         if found.isEmpty { logLine("ping backfill: no log matches"); return }
@@ -2820,7 +2865,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
 
     private func renderPingHistory() {
         let arr = UserDefaults.standard.stringArray(forKey: "qm_ping_history") ?? []
-        pingHistory.stringValue = arr.isEmpty ? "" : "发送记录（最近 5 次）\n" + arr.joined(separator: "\n")
+        pingHistory.stringValue = arr.isEmpty ? "" : L("发送记录（最近 5 次）\n") + arr.map(localizedHistoryEntry).joined(separator: "\n")
         pingHistory.isHidden = arr.isEmpty
     }
 
@@ -2828,12 +2873,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         guard !pingSending else { return }
         pingTouched = true
         guard let bin = resolveCodexBinary() else {
-            pingStatus.stringValue = "找不到 codex 命令"
+            pingStatus.stringValue = L("找不到 codex 命令")
             logLine("ping create failed: codex binary not found")
             return
         }
         pingSending = true
-        pingStatus.stringValue = "正在新建专用对话…"
+        pingStatus.stringValue = L("正在新建专用对话…")
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
@@ -2853,12 +2898,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
                 if let tid = newId {
                     UserDefaults.standard.set(tid, forKey: "qm_ping_thread")
                     UserDefaults.standard.set("卡窗口专用", forKey: "qm_ping_thread_name")
-                    self.pingStatus.stringValue = "专用对话已建好（刚才已顺带发出第一句你好）"
+                    self.pingStatus.stringValue = L("专用对话已建好（刚才已顺带发出第一句你好）")
                     logLine("ping thread created: \(tid)")
                     self.recordPing(kind: "新建专用对话", ok: true)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in self?.fetchCodex() }
                 } else {
-                    self.pingStatus.stringValue = "新建失败（退出码 \(code)），详情看日志"
+                    self.pingStatus.stringValue = L("新建失败（退出码 %d），详情看日志", res.code)
                     logLine("ping create failed code=\(code) tail=\(tail)")
                 }
                 self.updateCodexUI()
@@ -2946,8 +2991,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             claudePrimary = o
             logLine("Muse auto switch: primary -> \(o + 1) (was \(Int(pu.remaining.rounded()))%, other \(Int(ou.remaining.rounded()))%)")
             notify(id: "claude-autoswitch-\(Int(Date().timeIntervalSince1970))",
-                   title: "Muse 主账号已自动切换",
-                   body: "\(claudeName(o)) 成为主账号（原主账号仅剩 \(Int(pu.remaining.rounded()))%）")
+                   title: L("Muse 主账号已自动切换"),
+                   body: L("%@ 成为主账号（原主账号仅剩 %d%%）", claudeName(o), Int(pu.remaining.rounded())))
         }
     }
 
@@ -2984,8 +3029,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         guard rate > 0 else { return ("", false) }
         let eta = now.addingTimeInterval(rem / rate * 3600)
         guard eta < reset else { return ("", false) }
-        let df = DateFormatter(); df.dateFormat = "M月d日 HH:mm"
-        return ("周额度按近两天速度约 \(df.string(from: eta)) 用完", eta.timeIntervalSince(now) < 24 * 3600)
+        let df = DateFormatter(); df.locale = currentLocale; df.dateFormat = L("M月d日 HH:mm")
+        return (L("周额度按近两天速度约 %@ 用完", df.string(from: eta)), eta.timeIntervalSince(now) < 24 * 3600)
     }
 
     private func checkDigest(now: Date) {
@@ -3001,17 +3046,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
             guard let self = self else { return }
             var parts: [String] = []
-            parts.append("Codex 今日 \(fmtTokens(self.todayStat.tokens)) tokens · \(fmtMoney(self.todayStat.cost))")
+            parts.append(L("Codex 今日 %@ tokens · %@", fmtTokens(self.todayStat.tokens), fmtMoney(self.todayStat.cost)))
             if let u = self.codexUsage {
-                if let s = u.sessionRemaining { parts.append("5 小时剩 \(Int(s.rounded()))%") }
-                if let w = u.weeklyRemaining { parts.append("周剩 \(Int(w.rounded()))%") }
+                if let s = u.sessionRemaining { parts.append(L("5 小时剩 %d%%", Int(s.rounded()))) }
+                if let w = u.weeklyRemaining { parts.append(L("周剩 %d%%", Int(w.rounded()))) }
             }
             for i in 0...1 where self.hasCookie(i) {
                 if let cu = self.claudeUsages[i] {
-                    parts.append("Muse \(claudeName(i)) 剩 \(Int(cu.remaining.rounded()))%")
+                    parts.append(L("Muse %@ 剩 %d%%", claudeName(i), Int(cu.remaining.rounded())))
                 }
             }
-            self.notify(id: "digest-\(today)", title: "额度环每日小结", body: parts.joined(separator: "；"))
+            self.notify(id: "digest-\(today)", title: L("额度环每日小结"), body: parts.joined(separator: L("；")))
             logLine("digest sent: \(parts.joined(separator: " | "))")
         }
     }
@@ -3034,20 +3079,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
 
     private func resetSub(_ reset: Date?) -> String {
         guard let r = reset else { return "" }
-        return "\(fmtReset(r)) 重置"
+        return L("%@ 重置", fmtReset(r))
     }
 
     private func creditsText() -> String {
         guard let credits = codexCredits else { return "" }
         let avail = credits.filter { $0.status.lowercased() == "available" }
         let others = credits.count - avail.count
-        if avail.isEmpty { return credits.isEmpty ? "" : "重置券：暂无可用" }
-        var s = "重置券：\(avail.count) 张可用"
+        if avail.isEmpty { return credits.isEmpty ? "" : L("重置券：暂无可用") }
+        var s = L("重置券：%d 张可用", avail.count)
         let exps = avail.compactMap { $0.expiresAt }.sorted()
         if let e = exps.first {
-            s += " · 最近 \(fmtDay(e)) 到期"
+            s += L(" · 最近 %@ 到期", fmtDay(e))
         }
-        if others > 0 { s += " · 另 \(others) 张已用/过期" }
+        if others > 0 { s += L(" · 另 %d 张已用/过期", others) }
         return s
     }
 
@@ -3072,25 +3117,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
             if let s = u.sessionRemaining { lenCands.append("\(Int(s.rounded()))%" + (u.sessionReset.map { " · " + compactCountdown($0.timeIntervalSinceNow) } ?? "")) }
             if let wk = u.weeklyRemaining { lenCands.append("\(Int(wk.rounded()))%" + (u.weeklyReset.map { " · " + compactCountdown($0.timeIntervalSinceNow) } ?? "")) }
             if !lenCands.isEmpty { fitItemLength(codexItem, candidates: lenCands) }
-            cxSessionRow.setData(title: "会话（5 小时）", remaining: u.sessionRemaining, sub: resetSub(u.sessionReset))
+            cxSessionRow.setData(title: L("会话（5 小时）"), remaining: u.sessionRemaining, sub: resetSub(u.sessionReset))
             let (bt, urgent) = burnInfo()
             cxBurn.stringValue = bt
             cxBurn.textColor = urgent ? .systemOrange : .secondaryLabelColor
-            if !bt.isEmpty { tip.append("会话：\(bt)") }
-            cxWeeklyRow.setData(title: "每周", remaining: u.weeklyRemaining, sub: resetSub(u.weeklyReset))
+            if !bt.isEmpty { tip.append(L("会话：%@", bt)) }
+            cxWeeklyRow.setData(title: L("每周"), remaining: u.weeklyRemaining, sub: resetSub(u.weeklyReset))
             let (wt, wurgent) = weeklyBurnInfo()
             cxWeekBurn.stringValue = wt
             cxWeekBurn.textColor = wurgent ? .systemOrange : .secondaryLabelColor
-            if !wt.isEmpty { tip.append("每周：\(wt)") }
-            if let s = u.sessionRemaining { tip.append("会话（5h）剩余 \(Int(s.rounded()))%" + (u.sessionReset.map { " · \(fmtReset($0)) 重置" } ?? "")) }
-            if let w = u.weeklyRemaining { tip.append("每周剩余 \(Int(w.rounded()))%" + (u.weeklyReset.map { " · \(fmtReset($0)) 重置" } ?? "")) }
+            if !wt.isEmpty { tip.append(L("每周：%@", wt)) }
+            if let s = u.sessionRemaining { tip.append(L("会话（5h）剩余 %d%%", Int(s.rounded())) + (u.sessionReset.map { L(" · %@ 重置", fmtReset($0)) } ?? "")) }
+            if let w = u.weeklyRemaining { tip.append(L("每周剩余 %d%%", Int(w.rounded())) + (u.weeklyReset.map { L(" · %@ 重置", fmtReset($0)) } ?? "")) }
         } else {
             b.image = ringIconImage(remaining: nil, icon: codexAppIcon)
-            b.title = codexStatus.hasPrefix("登录已过期") ? "过期" : "--"
+            b.title = codexStatus.hasPrefix(L("登录已过期")) ? L("过期") : "--"
             fitItemLength(codexItem, candidates: [b.title])
-            cxSessionRow.setData(title: "会话（5 小时）", remaining: nil, sub: codexStatus)
+            cxSessionRow.setData(title: L("会话（5 小时）"), remaining: nil, sub: codexStatus)
             cxBurn.stringValue = ""
-            cxWeeklyRow.setData(title: "每周", remaining: nil, sub: "")
+            cxWeeklyRow.setData(title: L("每周"), remaining: nil, sub: "")
             cxWeekBurn.stringValue = ""
             tip.append(codexStatus)
         }
@@ -3098,18 +3143,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         cxCredits.stringValue = ct
         if !ct.isEmpty { tip.append(ct) }
         if statsUpdated != nil {
-            cxToday.stringValue = "今日　\(fmtTokens(todayStat.tokens)) tokens · \(fmtMoney(todayStat.cost))"
-            cxWeek.stringValue = "近 7 天　\(fmtTokens(weekStat.tokens)) tokens · \(fmtMoney(weekStat.cost))"
+            cxToday.stringValue = L("今日　%@ tokens · %@", fmtTokens(todayStat.tokens), fmtMoney(todayStat.cost))
+            cxWeek.stringValue = L("近 7 天　%@ tokens · %@", fmtTokens(weekStat.tokens), fmtMoney(weekStat.cost))
             tip.append(cxToday.stringValue)
             tip.append(cxWeek.stringValue)
         } else {
-            cxToday.stringValue = "今日　统计中…"
+            cxToday.stringValue = L("今日　统计中…")
             cxWeek.stringValue = ""
         }
         let df = DateFormatter(); df.dateFormat = "HH:mm"
-        cxUpdated.stringValue = "上次更新 \(df.string(from: lastCodexFetch))"
+        cxUpdated.stringValue = L("上次更新 %@", df.string(from: lastCodexFetch))
         let pname = UserDefaults.standard.string(forKey: "qm_ping_thread_name") ?? ""
-        pingTarget.stringValue = pname.isEmpty ? "目标对话：未选择" : "目标对话：\(pname)"
+        pingTarget.stringValue = pname.isEmpty ? L("目标对话：未选择") : L("目标对话：%@", pname)
         pingAuto.state = UserDefaults.standard.bool(forKey: "qm_ping_auto") ? .on : .off
         pingAutoWeekly.state = UserDefaults.standard.bool(forKey: "qm_ping_auto_weekly") ? .on : .off
         digestSwitch.state = UserDefaults.standard.bool(forKey: "qm_digest_on") ? .on : .off
@@ -3119,11 +3164,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         if !pingTouched {
             let last = UserDefaults.standard.double(forKey: "qm_ping_last_sent")
             if last > 0 {
-                let df2 = DateFormatter(); df2.dateFormat = "M月d日 HH:mm"
+                let df2 = DateFormatter(); df2.locale = currentLocale; df2.dateFormat = L("M月d日 HH:mm")
                 let when = df2.string(from: Date(timeIntervalSince1970: last))
-                let how = UserDefaults.standard.bool(forKey: "qm_ping_last_auto") ? "自动" : "手动"
-                var restored = "上次发送：\(when) · \(how)"
-                if let route = UserDefaults.standard.string(forKey: "qm_ping_last_route") { restored += " · \(route)" }
+                let how = UserDefaults.standard.bool(forKey: "qm_ping_last_auto") ? L("自动") : L("手动")
+                var restored = L("上次发送：%1$@ · %2$@", when, how)
+                if let route = UserDefaults.standard.string(forKey: "qm_ping_last_route") { restored += " · " + L(route) }
                 let lastTokens = UserDefaults.standard.integer(forKey: "qm_ping_last_tokens")
                 if lastTokens > 0 { restored += " · \(lastTokens) tokens" }
                 pingStatus.stringValue = restored
@@ -3137,28 +3182,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         var parts: [String] = []
         if let x = u.topupText {
             let core = x.split(separator: "：", maxSplits: 1).last.map(String.init) ?? x
-            parts.append("额外池 " + core)
+            parts.append(L("额外池 ") + core)
         }
-        if let used = u.topupUsedPct, used >= 0.5 { parts.append("已用 \(Int(used.rounded()))%") }
-        if let e = u.topupExpiry { parts.append("\(fmtDay(e)) 到期") }
+        if let used = u.topupUsedPct, used >= 0.5 { parts.append(L("已用 %d%%", Int(used.rounded()))) }
+        if let e = u.topupExpiry { parts.append(L("%@ 到期", fmtDay(e))) }
         return parts.joined(separator: " · ")
     }
 
     private func fillClaudeRow(_ row: BarRow, extra: NSTextField, index i: Int, isPrimary: Bool, tip: inout [String]) {
-        let label = claudeName(i) + (isPrimary ? "（主账号）" : "") + " · " + (claudeSurface(i) == "app" ? "应用" : "网页")
+        let label = claudeName(i) + (isPrimary ? L("（主账号）") : "") + " · " + (claudeSurface(i) == "app" ? L("应用") : L("网页"))
         if let u = claudeUsages[i] {
             var sub = resetSub(u.resetsAt)
             if let left = u.tokensLeftText { sub += " · \(left)" }
             row.setData(title: label, remaining: u.remaining, sub: sub)
             extra.stringValue = claudeExtraText(u)
-            tip.append("\(label) 每周剩余 \(Int(u.remaining.rounded()))%" + (u.resetsAt.map { " · \(fmtReset($0)) 重置" } ?? ""))
+            tip.append(L("%@ 每周剩余 %d%%", label, Int(u.remaining.rounded())) + (u.resetsAt.map { L(" · %@ 重置", fmtReset($0)) } ?? ""))
             if !extra.stringValue.isEmpty { tip.append("\(label) \(extra.stringValue)") }
         } else if hasCookie(i) {
             row.setData(title: label, remaining: nil, sub: claudeStatuses[i])
             extra.stringValue = ""
-            tip.append("\(label)：\(claudeStatuses[i])")
+            tip.append(L("%@：%@", label, claudeStatuses[i]))
         } else {
-            row.setData(title: label, remaining: nil, sub: i == 0 ? claudeStatuses[i] : "未设置：在「设置 Cookie…」里粘贴账号 2 的 Cookie")
+            row.setData(title: label, remaining: nil, sub: i == 0 ? claudeStatuses[i] : L("未设置：在「设置 Cookie…」里粘贴账号 2 的 Cookie"))
             extra.stringValue = ""
         }
     }
@@ -3179,22 +3224,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, UNU
         } else {
             b.image = ringIconImage(remaining: nil, icon: claudeAppIcon)
             let s = claudeStatuses[disp]
-            b.title = s.hasPrefix("未设置") ? "未设置" : (s.hasPrefix("登录已过期") ? "过期" : "--")
+            b.title = s.hasPrefix(L("未设置")) ? L("未设置") : (s.hasPrefix(L("登录已过期")) ? L("过期") : "--")
         }
         fillClaudeRow(muRow1, extra: muExtra1, index: primary, isPrimary: true, tip: &tip)
         fillClaudeRow(muRow2, extra: muExtra2, index: other, isPrimary: false, tip: &tip)
         muSwap.isHidden = !hasCookie(other)
-        if hasCookie(other) { muSwap.title = "把「\(claudeName(other))」设为主账号" }
+        if hasCookie(other) { muSwap.title = L("把「%@」设为主账号", claudeName(other)) }
         muRowSlot = [primary, other]
-        muOpen1.title = claudeSurface(primary) == "app" ? "打开应用" : "打开网页"
-        muOpen2.title = claudeSurface(other) == "app" ? "打开应用" : "打开网页" 
+        muOpen1.title = claudeSurface(primary) == "app" ? L("打开应用") : L("打开网页")
+        muOpen2.title = claudeSurface(other) == "app" ? L("打开应用") : L("打开网页") 
         muAutoSwitch.state = UserDefaults.standard.bool(forKey: "qm_claude_autoswitch") ? .on : .off
         let latest = max(lastClaudeFetch[0], lastClaudeFetch[1])
         if latest == Date.distantPast {
             muUpdated.stringValue = ""
         } else {
             let df = DateFormatter(); df.dateFormat = "HH:mm"
-            muUpdated.stringValue = "上次更新 \(df.string(from: latest))"
+            muUpdated.stringValue = L("上次更新 %@", df.string(from: latest))
         }
         var lenCands: [String] = [b.title]
         for i in 0...1 {

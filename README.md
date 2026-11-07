@@ -145,8 +145,10 @@ off by default.
 
 ## Localization
 
-The UI is currently Chinese only. An English localization is planned if
-there is interest — please open an issue, or send a PR.
+The UI is available in Simplified Chinese, English and Japanese. It
+follows your system language by default; you can switch it in
+**Settings… → General** (the app relaunches to apply). Translations live
+in `Sources/l10n.swift` — PRs for more languages are welcome.
 
 ## License
 

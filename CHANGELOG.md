@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Trilingual UI: Simplified Chinese, English and Japanese. Follows the
+  system language by default; switchable in Settings → General.
+
 ## 1.0.0 — 2026-11-07
 
 First public release.

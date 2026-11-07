@@ -1,7 +1,7 @@
 import AppKit
 
 // QuotaMeter conversation shortcuts (user-picked, any number).
-// The Codex panel's "快捷对话" pull-down lists the conversations the
+// The Codex panel's L("快捷对话") pull-down lists the conversations the
 // user saved (it used to be its own menu-bar item; the user asked to
 // fold it into the panel to save menu-bar space). Choosing one opens
 // its link through NSWorkspace, which launches the handling app:
@@ -74,11 +74,11 @@ final class ShortcutEditorController: NSWindowController {
     convenience init() {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 580, height: 440),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "管理快捷对话"
+        window.title = L("管理快捷对话")
         window.center()
         self.init(window: window)
         draft = ShortcutsController.storedLinks
-        let hint = NSTextField(wrappingLabelWithString: "自己挑要放进来的对话，可加多条。链接来源：Codex 本地对话在应用里对着对话用「复制深链」（codex:// 开头，点开自动唤醒应用直达）；ChatGPT 对话粘 chatgpt.com 的链接（打开时优先交给 ChatGPT 应用，接不住才回浏览器）。")
+        let hint = NSTextField(wrappingLabelWithString: L("自己挑要放进来的对话，可加多条。链接来源：Codex 本地对话在应用里对着对话用「复制深链」（codex:// 开头，点开自动唤醒应用直达）；ChatGPT 对话粘 chatgpt.com 的链接（打开时优先交给 ChatGPT 应用，接不住才回浏览器）。"))
         hint.frame = NSRect(x: 16, y: 376, width: 548, height: 56)
         window.contentView?.addSubview(hint)
         let scroll = NSScrollView(frame: NSRect(x: 16, y: 64, width: 548, height: 304))
@@ -95,15 +95,15 @@ final class ShortcutEditorController: NSWindowController {
             stack.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor, constant: -16),
         ])
         window.contentView?.addSubview(scroll)
-        let addBtn = NSButton(title: "＋ 添加一条", target: self, action: #selector(addRow))
+        let addBtn = NSButton(title: L("＋ 添加一条"), target: self, action: #selector(addRow))
         addBtn.bezelStyle = .rounded
         addBtn.frame = NSRect(x: 16, y: 14, width: 110, height: 28)
         window.contentView?.addSubview(addBtn)
-        let saveBtn = NSButton(title: "保存", target: self, action: #selector(saveClicked))
+        let saveBtn = NSButton(title: L("保存"), target: self, action: #selector(saveClicked))
         saveBtn.bezelStyle = .rounded; saveBtn.keyEquivalent = "\r"
         saveBtn.frame = NSRect(x: 484, y: 14, width: 80, height: 28)
         window.contentView?.addSubview(saveBtn)
-        let cancelBtn = NSButton(title: "取消", target: self, action: #selector(cancelClicked))
+        let cancelBtn = NSButton(title: L("取消"), target: self, action: #selector(cancelClicked))
         cancelBtn.bezelStyle = .rounded
         cancelBtn.frame = NSRect(x: 396, y: 14, width: 80, height: 28)
         window.contentView?.addSubview(cancelBtn)
@@ -124,14 +124,14 @@ final class ShortcutEditorController: NSWindowController {
         urlFields = []
         for (i, link) in draft.enumerated() {
             let nameF = NSTextField(string: link.name)
-            nameF.placeholderString = "名称"
+            nameF.placeholderString = L("名称")
             nameF.translatesAutoresizingMaskIntoConstraints = false
             nameF.widthAnchor.constraint(equalToConstant: 110).isActive = true
             let urlF = NSTextField(string: link.url)
-            urlF.placeholderString = "粘贴对话链接（codex://… 或 https://chatgpt.com/…）"
+            urlF.placeholderString = L("粘贴对话链接（codex://… 或 https://chatgpt.com/…）")
             urlF.translatesAutoresizingMaskIntoConstraints = false
             urlF.widthAnchor.constraint(equalToConstant: 330).isActive = true
-            let del = NSButton(title: "删除", target: self, action: #selector(deleteRow(_:)))
+            let del = NSButton(title: L("删除"), target: self, action: #selector(deleteRow(_:)))
             del.bezelStyle = .rounded
             del.tag = i
             let row = NSStackView(views: [nameF, urlF, del])
@@ -161,7 +161,7 @@ final class ShortcutEditorController: NSWindowController {
         harvest()
         let cleaned = draft.filter { !$0.url.isEmpty }.map { link -> ShortcutLink in
             var l = link
-            if l.name.isEmpty { l.name = "对话" }
+            if l.name.isEmpty { l.name = L("对话") }
             return l
         }
         ShortcutsController.storedLinks = cleaned
